@@ -1,0 +1,11 @@
+{
+    "name":"zmq-srv",
+    "version":"0.0.1",
+    "private": true,
+    "dependencies": {
+        "zmq":		"*",
+        "ws": 		"*",
+        "cluster":	"*",
+        "node-uuid":"*"
+    }
+}

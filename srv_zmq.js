@@ -18,10 +18,11 @@ pullSock.on('message', function(str){
 var wss = new WebSocketServer({port: 8080});
 var pushSock = zmq.socket('push');
 pushSock.connect(sockAddr);
+console.log("Started worker %d ...", process.pid);
 
 wss.on('connection', function(ws) {
 	var sessionId=null;
-   	console.log('>>connected');
+   	//console.log('>>connected');
     ws.on('message', function(str) {
         //console.log('received: %s', str);
         if(!sessionId){
@@ -33,6 +34,6 @@ wss.on('connection', function(ws) {
     });
     ws.on('close', function() {
     	delete(sockets[sessionId]);
-    	console.log('<<disconnected');
+    	//console.log('<<disconnected');
 	});
 });

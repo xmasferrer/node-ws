@@ -9,7 +9,8 @@ function repeat(str, num )
 var strMessage=repeat("AaBbC",2000);
 
 function worker(n,limit){
-	var ws = new WebSocket('ws://localhost:8080');
+	//var ws = new WebSocket('ws://localhost:8080');
+	var ws = new WebSocket(url);
 	var conta=0;
 	var sessionId=uuid.v4();
 	var msg=JSON.stringify({ sessionId : sessionId, msg: strMessage });
@@ -43,8 +44,9 @@ function worker(n,limit){
 	});
 }
 
-var workers=process.argv[2];
-var limit=process.argv[3];
+var url=process.argv[2];
+var workers=process.argv[3];
+var limit=process.argv[4];
 
 var avgTimes=new Array();
 var finished=0;
@@ -52,3 +54,4 @@ console.log("["+process.pid+"] Working...");
 for(var i=0;i<workers;i++){
 	new worker(i,limit);
 }
+

@@ -1,6 +1,7 @@
 var WebSocketServer = require('ws').Server;
 var cluster = require('cluster');
 
+if(!process.argv[2]) throw "Specify number of worker processes";
 var numCPUs=process.argv[2];
 
 

@@ -4,6 +4,7 @@ var cluster = require('cluster');
 
 //var numCPUs = require('os').cpus().length;
 //var numCPUs=2;
+if(!process.argv[2]) throw "Specify number of worker processes";
 var numCPUs=process.argv[2];
 
 var sockets=new Array();

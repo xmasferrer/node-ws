@@ -50,7 +50,8 @@ if (cluster.isMaster) {
 			sock.on('message', function(str){
 			  //log('work: ' + str);
 			  var msg=JSON.parse(str);
-			  if(sockets[msg.sessionId]) sockets[msg.sessionId].send(str);
+			  var sesId=msg.sessionId;
+			  if(sockets[sesId]) sockets[sesId].send(str);
 			});
 		  	//log("sub created");
 
@@ -73,7 +74,7 @@ if (cluster.isMaster) {
 					sessionId=msg.sessionId;
 			    	}
 				sockets[sessionId]=ws;
-					pubSock.send(str);
+				pubSock.send(str);
 			    });
 			    ws.on('close', function() {
 			    	delete(sockets[sessionId]);

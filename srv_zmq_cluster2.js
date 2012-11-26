@@ -7,6 +7,8 @@ var util = require('util');
 //var numCPUs=2;
 if(!process.argv[2]) throw "Specify number of worker processes";
 var numCPUs=process.argv[2];
+if(!process.argv[3]) throw "Specify port to listen to";
+var port=process.argv[3];
 
 var sockets=new Array();
 
@@ -62,7 +64,7 @@ if (cluster.isMaster) {
 			//log("bindSync "+mySockAddr);
 		  	//log("pub created");
 
-			var wss = new WebSocketServer({port: 8080});
+			var wss = new WebSocketServer({port: port});
 
 			wss.on('connection', function(ws) {
 				var sessionId=null;

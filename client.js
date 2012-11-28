@@ -6,14 +6,13 @@ function repeat(str, num )
 {
     return new Array( num + 1 ).join( str );
 }
-var strMessage=repeat("AaBbC",2000);
 
-function worker(n,limit){
+function worker(n,limit,msgTxt){
 	//var ws = new WebSocket('ws://localhost:8080');
 	var ws = new WebSocket(url);
 	var conta=0;
 	var sessionId=uuid.v4();
-	var msg=JSON.stringify({ sessionId : sessionId, msg: strMessage });
+	var msg=JSON.stringify({ sessionId : sessionId, msg: msgTxt });
 	var initTime=null;
 
 	ws.on('open', function() {
@@ -23,6 +22,8 @@ function worker(n,limit){
 
 	ws.on('message', function(message) {
 	    //console.log('received: %s', message);
+	    if(message.length!=msg.length)
+	    	console.log("[w:"+n+"] length mismatch: "+message.length+" != "+msg.length);
     	conta++;
 	    if(conta<limit){
 	    	ws.send(msg);
@@ -47,11 +48,13 @@ function worker(n,limit){
 var url=process.argv[2];
 var workers=process.argv[3];
 var limit=process.argv[4];
+var msgSize=process.argv[5];
+var strMessage=repeat("A",msgSize);
 
 var avgTimes=new Array();
 var finished=0;
 console.log("["+process.pid+"] Working...");
 for(var i=0;i<workers;i++){
-	new worker(i,limit);
+	new worker(i,limit,strMessage);
 }
 

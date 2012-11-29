@@ -57,6 +57,7 @@ wss.on('connection', function(ws) {
           from=msg.sessionKeyFrom;
           to=msg.sessionKeyTo;
           addSocket(from,to,ws);
+          // todo: si habia alguien al otro lado, enviarle el mensaje de inicio? enviarle uno por cada par mas bien?
         }
         broadcastMessage(to,str);
     });

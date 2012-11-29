@@ -16,7 +16,7 @@ function worker(n,limit,msgTxt){
 	var initTime=null;
 
 	function log(msg){
-		console.log("["+n+"] "+msg);
+		//console.log("["+n+"] "+msg);
 	}
 
 	ws.on('open', function() {
@@ -27,7 +27,7 @@ function worker(n,limit,msgTxt){
 
 	ws.on('message', function(message) {
 	    //console.log('received: %s', message);
-   	    log("receive");
+   	    log("receive "+message.length);
 	    if(message.length!=msg.length)
 	    	log("length mismatch: "+message.length+" != "+msg.length);
     	conta++;
@@ -57,7 +57,7 @@ var workers=process.argv[3];
 var limit=process.argv[4];
 var msgSize=process.argv[5];
 if(!msgSize) throw("Specify a message length");
-var strMessage=repeat("A",msgSize);
+var strMessage=repeat("A",msgSize*1024);
 
 var avgTimes=new Array();
 var finished=0;

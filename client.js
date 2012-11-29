@@ -15,18 +15,25 @@ function worker(n,limit,msgTxt){
 	var msg=JSON.stringify({ sessionId : sessionId, msg: msgTxt });
 	var initTime=null;
 
+	function log(msg){
+		console.log("["+n+"] "+msg);
+	}
+
 	ws.on('open', function() {
 		initTime=new Date();
 	    ws.send(msg);
+	    log("send");
 	});
 
 	ws.on('message', function(message) {
 	    //console.log('received: %s', message);
+   	    log("receive");
 	    if(message.length!=msg.length)
-	    	console.log("[w:"+n+"] length mismatch: "+message.length+" != "+msg.length);
+	    	log("length mismatch: "+message.length+" != "+msg.length);
     	conta++;
 	    if(conta<limit){
 	    	ws.send(msg);
+	    	log("send");
 	    }else{
 	    	var diff=new Date()-initTime;
 	    	avgTimes[n]=diff/limit;
@@ -49,6 +56,7 @@ var url=process.argv[2];
 var workers=process.argv[3];
 var limit=process.argv[4];
 var msgSize=process.argv[5];
+if(!msgSize) throw("Specify a message length");
 var strMessage=repeat("A",msgSize);
 
 var avgTimes=new Array();

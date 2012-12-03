@@ -5,7 +5,7 @@ var
 function worker(n,limit){
 	var wsOperator = null;
 	var wsAgent = null;
-	var conta=0;
+	var contaOper,contaAgent=0;
 	// var operatorFrom=uuid.v4();
 	// var operatorTo=uuid.v4();
 	var operatorFrom="from_"+n;
@@ -16,7 +16,6 @@ function worker(n,limit){
 	function log(msg){
 		console.log("["+n+"] "+msg);
 	}
-
 
 	console.log("Connecting agent");
 	wsAgent = new WebSocket(url);

@@ -1,40 +1,30 @@
 var WebSocketServer = require('ws').Server;
 
 var socketsByFrom={};
-var socketsByTo={};
 
-function addSocket(from,to,ws){
-  console.log("add: "+from + " >> "+to);
-  if(socketsByFrom[from] && socketsByFrom[from][to]) throw "Already connected! WTF!";
+function addSocket(from,to,ws,keyMsg){
+  //console.log("add: "+from + " >> "+to);
+  if(socketsByFrom[from] && socketsByFrom[from].connectedTo[to]) throw "Already connected! WTF!";
 
-  var listFrom=socketsByFrom[from]?socketsByFrom[from]:{};
-  listFrom[to]=ws;
+  var listFrom=socketsByFrom[from]?socketsByFrom[from]:{keyMessage:keyMsg,connectedTo:{}};
+  listFrom.connectedTo[to]=ws;
   socketsByFrom[from]=listFrom;
-
-  var listTo=socketsByTo[to]?socketsByTo[to]:{};
-  listTo[from]=ws;
-  socketsByTo[to]=listTo;
 }
 
 function removeSocket(from,to){
-  console.log("remove: "+from + " >> "+to);
-  if(socketsByFrom[from] && socketsByFrom[from][to]) delete(socketsByFrom[from][to]);
-  if(socketsByTo[to] && socketsByTo[to][from]) delete(socketsByTo[to][from]);
+  //console.log("remove: "+from + " >> "+to);
+  if(socketsByFrom[from]) delete(socketsByFrom[from]);
+  if(socketsByFrom[to] && socketsByFrom[to].connectedTo[from]) delete(socketsByFrom[to][from]);
 }
 
 function broadcastMessage(from,msg){
-  //console.log("broadcast: "+from);
   var listeners=socketsByFrom[from];
-  if(!listeners){ 
-    console.log("No listeners");
+  if(!listeners || !listeners.connectedTo){ 
+    //console.log("No listeners");
     return;
   }
-  //console.log(listeners);
-  //console.log("len: "+listeners.length);
-  for(var i in listeners){
-    //console.log(listeners[i]);
-    //console.log("sending to: "+i);
-    listeners[i].send(msg);
+  for(var i in listeners.connectedTo){
+    listeners.connectedTo[i].send(msg);
   }
 }
 
@@ -48,21 +38,24 @@ wss.on('connection', function(ws) {
     var sessionId=null;
     var from=null;
     var to=null;
-   	console.log('>>connected');
-    //sMessage = JSON.stringify({type:'keyss',sessionKeyFrom:sId,sessionKeyTo:oSelf._to[sId],app:oSelf._app[sId],server:false,format:oSelf._format[sId]});
+   	//console.log('>>connected');
     ws.on('message', function(str) {
-        //console.log("received: "+str);
+        //console.log("["+from+"] received: "+str);
         if(!from || !to){
           var msg=JSON.parse(str);
-          from=msg.sessionKeyFrom;
-          to=msg.sessionKeyTo;
-          addSocket(from,to,ws);
-          // todo: si habia alguien al otro lado, enviarle el mensaje de inicio? enviarle uno por cada par mas bien?
+          if(msg.type.toLowerCase()=='keyss'){
+            from=msg.sessionKeyFrom;
+            to=msg.sessionKeyTo;
+            addSocket(from,to,ws,msg);
+            if(socketsByFrom[to] && socketsByFrom[to].connectedTo[from]){
+              broadcastMessage(from,JSON.stringify(socketsByFrom[to].keyMessage));
+            }
+          }
         }
         broadcastMessage(to,str);
     });
     ws.on('close', function() {
-      //removeSocket(from,to);
-    	console.log('<<disconnected');
+      removeSocket(from,to);
+    	//console.log('<<disconnected');
 	});
 });

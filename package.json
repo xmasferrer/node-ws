@@ -6,6 +6,7 @@
         "zmq":		"*",
         "ws": 		"*",
         "cluster":	"*",
-        "node-uuid":"*"
+        "node-uuid":"*",
+        "websocket":"*"
     }
 }

@@ -270,7 +270,7 @@ serverNET.listen(port_sck);
 //////////////////////////////////////////////////////////
 // WEBSOCKETS
 //////////////////////////////////////////////////////////
-var WebSocketServer = require('C:/Program Files (x86)/nodejs/node_modules/websocket/lib/websocket.js').server;
+var WebSocketServer = require('websocket').server;
 var http = require('http');
 
 var server = http.createServer(function(request, response) {

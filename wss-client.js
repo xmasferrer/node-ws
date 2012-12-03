@@ -2,7 +2,7 @@ var
 	WebSocket = require('ws')
 	, uuid = require('node-uuid');
 
-function worker(n){
+function worker(n,limit){
 	var wsOperator = null;
 	var wsAgent = null;
 	var conta=0;
@@ -22,7 +22,7 @@ function worker(n){
 	wsAgent = new WebSocket(url);
 	wsAgent.on('message', function(message) {
    	    log("ag_receive "+message);
-   	    wsAgent.close();
+   	    if(message=="end") wsAgent.close();
 	});
 	wsAgent.on('open', function() {
 	    wsAgent.send(JSON.stringify({type:'keyss',sessionKeyFrom:agentFrom,sessionKeyTo:agentTo}));
@@ -33,20 +33,37 @@ function worker(n){
 		wsOperator = new WebSocket(url);
 		wsOperator.on('message', function(message) {
 	   	    log("op_receive "+message);
-	   	    wsOperator.close();
+	   	    if(message=="end") wsOperator.close();
 		});
 		wsOperator.on('open', function() {
 		    wsOperator.send(JSON.stringify({type:'keyss',sessionKeyFrom:operatorFrom,sessionKeyTo:operatorTo}));
+		    //wsOperator.send("HOLA");
+		    var i=0;
+		    function sendMessages(){
+		    	if(i<limit){
+					wsAgent.send("Msg: "+i);
+					wsOperator.send("Msg: "+i);
+					i++;
+				}else{
+					clearInterval(timerId);
+					wsAgent.send("end");
+					wsOperator.send("end");
+				}
+		    }
+		    var timerId = setInterval(sendMessages, 500);  
 		});
 	},1000);
-
 }
 
 var url=process.argv[2];
 var workers=process.argv[3];
+var limit=process.argv[4];
+
+if(!url || !workers || !limit || limit<1)
+	throw("node wss-client.js url #workers limit");
 
 console.log("["+process.pid+"] Working...");
 for(var i=0;i<workers;i++){
-	new worker(i);
+	new worker(i,limit);
 }
 

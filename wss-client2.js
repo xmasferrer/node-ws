@@ -3,6 +3,13 @@ var WebSocket = require('ws');
 var finished=0;
 var times={};
 
+function sleep(milliSeconds) {  
+    // obten la hora actual
+    var startTime = new Date().getTime();
+    // atasca la cpu
+    while (new Date().getTime() < startTime + milliSeconds); 
+}
+
 function pingPongAgent(url,limit,from,to){
 	var conta = 0;
 	var ws = new WebSocket(url);
@@ -10,7 +17,7 @@ function pingPongAgent(url,limit,from,to){
 	var end=false;
 
 	function log(str){
-		//console.log("["+from+"] "+str);
+		// console.log("["+from+"] "+str);
 	}
 
 	function sendPing(){
@@ -36,7 +43,7 @@ function pingPongAgent(url,limit,from,to){
 
 	ws.on('open', function() {
 		initTime=new Date();
-	    ws.send(JSON.stringify({type:'KeySS',sessionKeyFrom:from,sessionKeyTo:to,app:500}));
+	    ws.send(JSON.stringify({type:'keyss',sessionKeyFrom:from,sessionKeyTo:to,app:500,format:'text'}));
 	});
 	ws.on('message', function(str) {
 		log('received: '+str);
@@ -62,6 +69,12 @@ function pingPongAgent(url,limit,from,to){
 		}
 		checkDisconnect();
 	});
+	ws.on('close', function (){
+		console.log ('closing :' + from + ' ' + to);
+	});
+	ws.on('error', function (err){
+		console.log ('error :' + err);
+	});
 }
 
 function worker(n){
@@ -69,6 +82,7 @@ function worker(n){
 	var operatorTo="to_"+n;
 
 	var op=new pingPongAgent(url,limit,operatorFrom,operatorTo);
+//	sleep(1000);
 	var ag=new pingPongAgent(url,limit,operatorTo,operatorFrom);
 
 }
@@ -88,4 +102,3 @@ console.log("["+process.pid+"] Working...");
 for(var i=0;i<workers;i++){
 	new worker(i);
 }
-

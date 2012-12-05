@@ -27,17 +27,6 @@ function pingPongAgent(url,limit,from,to){
 	function checkDisconnect(){
 		if(conta>=limit && end){
 			ws.close();
-			finished++;
-			var elapsed=new Date()-initTime;
-			times[from]=elapsed/limit;
-			if(finished==workers*2){
-				var sum = 0;
-				for(var i  in times){
-    				sum += times[i];
-				}
-				var avg = sum/(workers*2);
-	    		console.log("ALL FINISHED - AVG: " + avg.toFixed(2) + " ms/msg");
-			}
 		}
 	}
 
@@ -70,7 +59,22 @@ function pingPongAgent(url,limit,from,to){
 		checkDisconnect();
 	});
 	ws.on('close', function (){
-		console.log ('closing :' + from + ' ' + to);
+		finished++;
+		var elapsed=new Date()-initTime;
+		times[from]=elapsed/limit;
+		if(finished==workers*2){
+			var sum = 0;
+			for(var i  in times){
+				sum += times[i];
+			}
+			var avg = sum/(workers*2);
+			console.log("ALL FINISHED - AVG: " + avg.toFixed(2) + " ms/msg");
+		}
+	
+		if(finished!=workers*2)		
+			console.log ('closing :' + from + ' ' + to + ' finished: ' + finished + ' Ping :' + conta);
+		else
+			console.log ('closing :' + from + ' ' + to + ' finished: ' + finished + ' Ping :' + conta);
 	});
 	ws.on('error', function (err){
 		console.log ('error :' + err);
@@ -78,8 +82,8 @@ function pingPongAgent(url,limit,from,to){
 }
 
 function worker(n){
-	var operatorFrom="fr_"+n;
-	var operatorTo="to_"+n;
+	var operatorFrom="fr_"+new_id+'_'+n;
+	var operatorTo="to_"+new_id+'_'+n;
 
 	var op=new pingPongAgent(url,limit,operatorFrom,operatorTo);
 //	sleep(1000);
@@ -87,10 +91,22 @@ function worker(n){
 
 }
 
-var url=process.argv[2];
+
+var url= 'ws://127.0.0.1:11438';
+var workers=1;
+var limit=1;
+var pong_size=1;
+var new_id = 1;
+
+
+if (process.argv.length > 2)
+	var url=process.argv[2];
 var workers=process.argv[3];
 var limit=process.argv[4];
 var pong_size=process.argv[5];
+var new_id = process.argv[6];
+
+
 
 if(!url || !workers || !limit || limit<1 || pong_size<1)
 	throw("node wss-client.js url #workers limit pong_size(kbs)");

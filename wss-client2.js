@@ -1,12 +1,15 @@
 var WebSocket = require('ws');
 
+var initTimeTotal=new Date();
+
 var finishedWS=0;
 var timesWS={};
 
-var initTimeTotal=new Date();
 var finishedSCK=0;
 var timesSCK={};
 
+// 					Function to simulate Sleep
+// milliSeconds: Number of miliseconds to simulate Sleep
 function sleep(milliSeconds) {  
     // obten la hora actual
     var startTime = new Date().getTime();
@@ -14,30 +17,36 @@ function sleep(milliSeconds) {
     while (new Date().getTime() < startTime + milliSeconds); 
 }
 
+
+//					Function to do PINGPONG with WEBSOCKETS (simulates a side [Agent/UI])
 // bPing: not used, We receive whole packet
 // iroutet: 1,2; We have to wait for client and agent or just for client or Agent
-
-function pingPongAgentWS(url,limit,from,to, bPing, iroutet){
+// bFast; [true/false]  just receives messages or computes messages
+function pingPongAgentWS(url,limit,from,to, bPing, iroutet, bfast){
 	var conta = 0;
 	var ws = new WebSocket(url);
 	var initTime=null;
 	var end=false;
 	var internalData='';
-
+	var size = 0;
+	
 	function log(str){
-		// console.log('WS ' + '[' + from + '] ' + str);
+	//	console.log('WS ' + '[' + from + '] ' + str);
 	}
 
+	// Send a ping message
 	function sendPing(){
 		ws.send(JSON.stringify({type:'ping'}));
 		log (' Ping : ' + conta + ' ping');
 	}
 
+	// Send a Pong message
 	function sendPong(){
 		ws.send(pong_msg);
 		log ( ' pong ' + pong_msg.length);
 	}
 	
+	// Check we have to disconnect and close WS
 	function checkDisconnect(){
 		if(conta>=limit && end){
 			log('disconect ' + conta + ' ' + limit + ' ' + end);
@@ -45,12 +54,45 @@ function pingPongAgentWS(url,limit,from,to, bPing, iroutet){
 		}
 	}
 
-	ws.on('open', function() {
-		log (' connect :');
-		initTime=new Date();
-	    ws.send(JSON.stringify({type:'keyss',sessionKeyFrom:from,sessionKeyTo:to,app:500,format:'text'}));
-	});
-	ws.on('message', function(str) {
+	// Function that just receives messages and do Ping/Pong -Without computing message received- 
+	function FastComputation(str) 	{
+		log('FAST conta : ' + conta + ' data: ' + str.length + ' pong: ' + pong_msg.length + ' currentSize: ' + size);
+		
+		// We can receive fragmented packet, wait whole packet to send ping
+		if(conta>=limit){
+			try {
+				ws.send(JSON.stringify({type:'end'}));
+				ws.close();
+			}
+			catch (error)
+			{
+				console.log (error);
+			}
+		}
+		else
+		{
+			if(bPing)
+			{
+				if (size+str.length >=  pong_msg.length)
+				{
+					conta++;
+					size += str.length;
+					size -= pong_msg.length;
+					sendPing();
+				}
+				else
+					size += str.length;
+			}
+			else
+			{
+				conta++;
+				sendPong();
+			}
+		}			
+	}
+
+	// Function that receives messages and computes received message and do Ping/Pong
+	function AllComputation (str)	{	
 		internalData += str;
 		log('X conta: ' + conta + ' data: ' + internalData.length);
 
@@ -100,12 +142,32 @@ function pingPongAgentWS(url,limit,from,to, bPing, iroutet){
 			}
 			checkDisconnect();
 		}
-		
+	}
+	
+	// EVENT called when a connection is stablished
+	ws.on('open', function() {
+		log (' connect :');
+		initTime=new Date();
+	    ws.send(JSON.stringify({type:'keyss',sessionKeyFrom:from,sessionKeyTo:to,app:500,format:'text'}));
 	});
+
+	// EVENT called when a message is received -whole message received (we can receive fragmented packets in case of comming from a 'socket')-
+	ws.on('message', function(str) {
+		if (bfast)
+			FastComputation(str);
+		else
+			AllComputation(str);
+	});
+	
+	// EVENT called when a conneciton is closed
 	ws.on('close', function (){
 		finishedWS++;
 		var elapsed=new Date()-initTime;
-		timesWS[from]=elapsed/limit;
+
+		if (conta > 0)
+			timesWS[from]=elapsed/conta;
+		else
+			timesWS[from]=-1;		
 		
 		log ('closed :'  + to + ' finishedWS: ' + finishedWS + ' Ping :' + conta + ' ToFinish :' + timesWS[from]);
 		if(finishedWS>=workers* iroutet){
@@ -127,8 +189,9 @@ function pingPongAgentWS(url,limit,from,to, bPing, iroutet){
 			console.log ('Total Time:' + endTimeTotal);
 		}
 	});
+	
+	// EVENT called when an error araise (try-catch must to be managed individualy)
 	ws.on('error', function (err){
-		timesWS[from] = -1;
 		finishedWS++;
 		console.log (' error :' + err);
 	});
@@ -136,9 +199,11 @@ function pingPongAgentWS(url,limit,from,to, bPing, iroutet){
 
 var net = require('net');
 
+//					Function to do PINGPONG with SOCKETS (simulates a side [Agent/UI])
 // bPing: true, false;  We can receive fragmented packet, wait whole packet to send ping
 // iroutet: 1,2; We have to wait for client and agent or just for client or Agent
-function pingPongAgentSocket(url,limit,from,to, bPing, iroutet){
+// bFast; [true/false]  just receives messages or computes messages
+function pingPongAgentSocket(url,limit,from,to, bPing, iroutet, bfast){
 	var conta = 0;
 	var size = 0;
 	var initTime=null;
@@ -148,32 +213,63 @@ function pingPongAgentSocket(url,limit,from,to, bPing, iroutet){
 	
 	socket.setNoDelay(true);
 
-	function log(str){
+	function log(str)	{
 		//console.log('SCK ' + '[' + from + '] ' + str);
 	}
 
-	function sendPing(){
+	// Send a ping message
+	function sendPing()	{
 		socket.write(',' + JSON.stringify({type:'ping'}));		
 		log ( ' Ping : ' + conta + ' ping');
 	}
-	function sendPong(){
+
+	// Send a pong message
+	function sendPong()	{
 		socket.write(pong_msg);
 		log (' pong ' + pong_msg.length);
 	}
 
+	// Check we have to disconnect and close Scoket
 	function checkDisconnect(){
-		if(conta>=limit && end){
+		if(conta>=limit && end)
+		{
 			log('disconect ' + conta + ' ' + limit + ' ' + end);
 			socket.end();
 		}
 	}
-	
-	socket.on('connect', function() {
-		log (' connect :');
-		initTime=new Date();
-	    socket.write(JSON.stringify({type:'keyss',sessionKeyFrom:from,sessionKeyTo:to,app:500,format:'text'}));
-	});
-	socket.on('data', function(str) {
+
+	// Function that just receives messages and do Ping/Pong -Without computing message received- 
+	function FastComputation(str) 	{
+		log('FAST conta : ' + conta + ' data: ' + str.length + ' pong: ' + pong_msg.length + ' currentSize: ' + size);
+		
+		if(conta>=limit){
+			socket.write(JSON.stringify({type:'end'}));
+			socket.end();
+		}
+		else  // We can receive fragmented packet, wait whole packet to send ping
+		{
+			if(bPing)
+			{
+				if (size+str.length >=  pong_msg.length)
+				{
+					conta++;
+					size += str.length;
+					size -= pong_msg.length;
+					sendPing();
+				}
+				else
+					size += str.length;
+			}
+			else
+			{
+				conta++;
+				sendPong();
+			}
+		}
+	}
+
+	// Function that receives messages and computes received message and do Ping/Pong
+	function AllComputation (str)	{
 		internalData += str;
 		log('X conta: ' + conta + ' data: ' + internalData.length);
 
@@ -223,16 +319,38 @@ function pingPongAgentSocket(url,limit,from,to, bPing, iroutet){
 			}
 			checkDisconnect();
 		}		
+	}
+	
+	// EVENT called when a conneciton is stablished
+	socket.on('connect', function() {
+		log (' connect :');
+		initTime=new Date();
+	    socket.write(JSON.stringify({type:'keyss',sessionKeyFrom:from,sessionKeyTo:to,app:500,format:'text'}));
 	});
+	
+	// EVENT called when data is received -any message can be received fragmented-
+	socket.on('data', function(str) {
+		if (bfast)
+			FastComputation(str);
+		else
+			AllComputation(str);
+	});
+	
+	// EVENT called when no more data can be received from a Socket
 	socket.on('end', function () {
 		log ('end ');
 	});
+	
+	// EVENT called when a socket is closed
 	socket.on('close', function (){
 		log (' close :' + ' Ping : ' + conta );
 		finishedSCK++;
 		var elapsed=new Date()-initTime;
-		if (timesSCK[from] != -1)
-			timesSCK[from]=elapsed/limit;
+
+		if (conta > 0)
+			timesSCK[from]=elapsed/conta;
+		else
+			timesSCK[from]=-1;
 		
 		log ('closed :' + to + ' finishedSCK: ' + finishedSCK + ' Ping : ' + conta + ' ToFinish :' + timesSCK[from] + ' ' + finishedSCK);
 		if(finishedSCK>=workers*iroutet){
@@ -257,9 +375,9 @@ function pingPongAgentSocket(url,limit,from,to, bPing, iroutet){
 		else
 			log ('closing :'  + to + ' finishedSCK: ' + finishedSCK + ' Ping :' + conta);
 	});
+	
+	// EVENT received when an error is received
 	socket.on('error', function (err){
-		if (conta <= 0)
-			timesSCK[from] = -1;
 		console.log (' error :' + err + ' Ping : ' + conta);
 	});
 	
@@ -267,32 +385,28 @@ function pingPongAgentSocket(url,limit,from,to, bPing, iroutet){
 }
 
 
-function workerWS(n){
+function workerWS(n, computeFast){
 	var operatorFrom="wsfr_"+new_id+'_'+n;
 	var operatorTo="wsto_"+new_id+'_'+n;
 
-	var op=new pingPongAgentWS(url,limit,operatorFrom,operatorTo, 1, 2);
-//	sleep(100);
-	var ag=new pingPongAgentWS(url,limit,operatorTo,operatorFrom, 0, 2);
+	var op=new pingPongAgentWS(url,limit,operatorFrom,operatorTo, 1, 2, computeFast);
+	var ag=new pingPongAgentWS(url,limit,operatorTo,operatorFrom, 0, 2, computeFast);
 }
 
-function workerSocket(n){
+function workerSocket(n, computeFast){
 	var operatorFrom="sckfr_"+new_id+'_'+n;
 	var operatorTo="sckto_"+new_id+'_'+n;
 
-	var op=new pingPongAgentSocket(url,limit,operatorFrom,operatorTo, 1, 2);
-	var ag=new pingPongAgentSocket(url,limit,operatorTo,operatorFrom, 0, 2);
+	var op=new pingPongAgentSocket(url,limit,operatorFrom,operatorTo, 1, 2, computeFast);
+	var ag=new pingPongAgentSocket(url,limit,operatorTo,operatorFrom, 0, 2, computeFast);
 }
 
-function workerSocketMixt(n){
+function workerSocketMixt(n, computeFast){
 	var operatorFrom="fr_"+new_id+'_'+n;
 	var operatorTo="to_"+new_id+'_'+n;
 
-	var op=new pingPongAgentSocket(url,limit,operatorFrom,operatorTo, 0, 1);
-	var ag=new pingPongAgentWS(url,limit,operatorTo,operatorFrom, 0, 1);
-
-//	var op=new pingPongAgentSocket(url,limit,operatorFrom,operatorTo, 1, 1);
-//	var ag=new pingPongAgentWS(url,limit,operatorTo,operatorFrom, 0, 1);	
+	var op=new pingPongAgentSocket(url,limit,operatorFrom,operatorTo, 0, 1, computeFast);
+	var ag=new pingPongAgentWS(url,limit,operatorTo,operatorFrom, 0, 1, computeFast);
 }
 
 
@@ -303,29 +417,28 @@ var limit=10;
 var pong_size=1;
 var new_id = 1;
 var sType = 'WS';
+var computeFast = false;
 
-if (process.argv.length > 2)
-	url=process.argv[2];
-if (process.argv.length > 3)
-	workers=process.argv[3];
-if (process.argv.length > 4)
-	limit=process.argv[4];
-if (process.argv.length > 5)
-	pong_size=process.argv[5];
-if (process.argv.length > 6)
-	new_id = process.argv[6];
-if (process.argv.length > 7)
-	sType = process.argv[7];
-
-
-if (process.argv.length <= 7)
+if (process.argv.length > 2) 	url=process.argv[2];
+if (process.argv.length > 3)	workers=process.argv[3];
+if (process.argv.length > 4)	limit=process.argv[4];
+if (process.argv.length > 5)	pong_size=process.argv[5];
+if (process.argv.length > 6)	new_id = process.argv[6];
+if (process.argv.length > 7)	
 {
-	console.log ('usage: node ws_client2.js [url] [workers] [Num pings] [Size Pings] [ID] [WS/SCK/MX/ALL]');
-	console.log ('node ws_client2.js ws://127.0.0.1:11438 1 1 10 1');
+	var str = process.argv[7];
+	computeFast = (str.toLowerCase() == 'fast');
+}
+if (process.argv.length > 8)	sType = process.argv[8];
+
+if (process.argv.length <= 8)
+{
+	console.log ('usage: node ws_client2.js [url] [workers] [Num pings] [Size Pings] [ID] [FAST] [WS/SCK/MX/ALL]');
+	console.log ('node ws_client2.js ws://127.0.0.1:11438 1 1000 10 fast 98');
 }
 else
 {
-	console.log ('node ws_client2.js' + url + ' ' + workers + ' ' + limit + ' ' + pong_size + ' ' + new_id + ' ' + sType);
+	console.log ('node ws_client2.js ' + url + ' ' + workers + ' ' + limit + ' ' + pong_size + ' ' + new_id + ' ' + str + ' ' + sType);
 }
 	
 if(!url || !workers || !limit || limit<1 || pong_size<1)
@@ -333,8 +446,6 @@ if(!url || !workers || !limit || limit<1 || pong_size<1)
 
 var pong_body=new Array( pong_size * 1024 ).join( 'A' );
 var pong_msg=JSON.stringify({type:'pong',body:pong_body});
-
-
 console.log("["+process.pid+"] Working..." + pong_msg.length);
 
 var running = false;
@@ -342,9 +453,9 @@ var running = false;
 if (sType == 'WS' || sType == 'ALL')
 {
 	console.log ('WS');
-	for(var i=0;i<workers;i++){
-		new workerWS(i);
-	}
+	
+	for(var i=0;i<workers;i++)
+		new workerWS(i, computeFast);
 	running = true;
 }
 
@@ -353,18 +464,18 @@ if (sType == 'SCK' || sType == 'ALL')
 {
 	console.log ('sockets');
 	new_id = new_id +1;
-	for(var i=0;i<workers;i++){
-		new workerSocket(i);
-	}
+	
+	for(var i=0;i<workers;i++)
+		new workerSocket(i, computeFast);
 	running = true;
 }
 
 if (sType == 'MX')
 {
 	console.log ('MX');
-	for(var i=0;i<workers;i++){
-		new workerSocketMixt(i);
-	}
+	
+	for(var i=0;i<workers;i++)
+		new workerSocketMixt(i, computeFast);
 	running = true;
 }
 
